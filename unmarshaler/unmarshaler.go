@@ -168,7 +168,7 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 	}
 
 	inj := inject.NewInjector(d.Inject)
-	args := []interface{}{&d.Ctx, kind, config}
+	args := []interface{}{d, &d.Ctx, kind, config}
 	for _, arg := range args {
 		err := inj.Map(reflect.ValueOf(arg))
 		if err != nil {
