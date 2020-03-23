@@ -11,14 +11,14 @@ import (
 // universal kind method registration. result is the function return type. last args must is interface{}.
 // register func(arg1, arg2, argN..., result) (error) => func(arg1, arg2, argN...) (result, error)
 func RegisterWithBuildFunc(kind string, function, result interface{}) error {
-	fun, err := buildFunc(function, result)
+	fun, err := BuildFunc(function, result)
 	if err != nil {
 		return err
 	}
-	return types.RegisterWithPkg(kind, fun.Interface())
+	return types.Register(kind, fun.Interface())
 }
 
-func buildFunc(function, result interface{}) (reflect.Value, error) {
+func BuildFunc(function, result interface{}) (reflect.Value, error) {
 	buildFun := reflect.ValueOf(function)
 	buildFunTyp := buildFun.Type()
 	if buildFunTyp.Kind() != reflect.Func {

@@ -58,7 +58,7 @@ func tempKindGenType(prefix string, typ reflect.Type) string {
 var tempKind = template.Must(template.New("_").
 	Funcs(template.FuncMap{"genType": tempKindGenType}).
 	Parse(`
-// {{.Name}}{{.Ref.Name}} {{.Out.PkgPath}}.{{.Out.Name}}@{{.Kind}}
+// {{.Name}}{{.Ref.Name}} {{.Kind}}
 {{genType .Name .Ref}}
 
 func ({{.Name}}{{.Ref.Name}}) is{{.Type}}() {}
@@ -66,13 +66,13 @@ func ({{.Name}}{{.Ref.Name}}) isComponent() {}
 
 // MarshalJSON returns m as the JSON encoding of m.
 func (m {{.Name}}{{.Ref.Name}}) MarshalJSON() ([]byte, error) {
-	const kind{{.Name}}{{.Ref.Name}} = "{{.Out.PkgPath}}@{{.Kind}}"
+	const kind{{.Name}}{{.Ref.Name}} = "{{.Kind}}"
 	type t {{.Name}}{{.Ref.Name}}
 	data, err := json.Marshal(t(m))
 	if err != nil {
 		return nil, err
 	}
-	data = appendKV("Kind", kind{{.Name}}{{.Ref.Name}}, data)
+	data = appendKV("@Kind", kind{{.Name}}{{.Ref.Name}}, data)
 	return data, nil
 }
 `))
@@ -108,9 +108,9 @@ func (m *RawComponent) UnmarshalJSON(data []byte) error {
 func appendKV(k, v string, data []byte) []byte{
 	if data[0] == '{' {
 		if len(data) == 2 {
-			data = []byte(fmt.Sprintf("{\"@%s\":%q}", k, v))
+			data = []byte(fmt.Sprintf("{\"%s\":%q}", k, v))
 		} else {
-			data = append([]byte(fmt.Sprintf("{\"@%s\":%q,", k, v)), data[1:]...)
+			data = append([]byte(fmt.Sprintf("{\"%s\":%q,", k, v)), data[1:]...)
 		}
 	}
 	return data

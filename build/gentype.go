@@ -160,7 +160,7 @@ func (g *genType) toOther(typ reflect.Type) {
 
 func (g *genType) toInterface(typ reflect.Type) {
 	if typ.NumMethod() == 0 {
-		fmt.Fprint(g.out, "PipeComponent")
+		fmt.Fprint(g.out, "Component")
 		return
 	}
 	typName := g.getTypeName(typ)

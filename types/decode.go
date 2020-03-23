@@ -18,10 +18,6 @@ func Register(kind string, fun interface{}) error {
 	return stdTypes.Register(kind, fun)
 }
 
-func RegisterWithPkg(kind string, fun interface{}) error {
-	return stdTypes.RegisterWithPkg(kind, fun)
-}
-
 func Get(kind string) (reflect.Value, bool) {
 	return stdTypes.Get(kind)
 }
@@ -56,18 +52,11 @@ func (h *types) Register(kind string, v interface{}) error {
 	return h.register(kind, fun)
 }
 
-func (h *types) RegisterWithPkg(kind string, v interface{}) error {
-	fun := reflect.ValueOf(v)
-	kind = fun.Type().PkgPath() + "@" + kind
-	return h.register(kind, fun)
-}
-
 func (h *types) register(kind string, fun reflect.Value) error {
 
-	err := checkFunc(fun)
+	_, err := CheckFunc(fun)
 	if err != nil {
-		err = fmt.Errorf("register %s: %v: %w", kind, fun, err)
-		return err
+		return fmt.Errorf("register %s: %v: %w", kind, fun, err)
 	}
 
 	h.funcs[kind] = fun
@@ -79,25 +68,25 @@ func (h *types) Get(kind string) (reflect.Value, bool) {
 	return pairs, ok
 }
 
-func checkFunc(funcValue reflect.Value) error {
+func CheckFunc(funcValue reflect.Value) (reflect.Type, error) {
 	if funcValue.Kind() != reflect.Func {
-		return ErrNotFunction
+		return nil, ErrNotFunction
 	}
 	funcType := funcValue.Type()
 
 	numOut := funcType.NumOut()
 	switch numOut {
 	case 0:
-		return ErrReturnNoParameters
+		return nil, ErrReturnNoParameters
 	case 1:
 	case 2:
 		if !funcType.Out(1).Implements(errImplements) {
-			return ErrSecondReturnParameters
+			return nil, ErrSecondReturnParameters
 		}
 	default:
-		return ErrTooManyReturnParameters
+		return nil, ErrTooManyReturnParameters
 	}
-	return nil
+	return funcType.Out(0), nil
 }
 
 var errImplements = reflect.TypeOf(new(error)).Elem()
