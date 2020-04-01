@@ -11,8 +11,8 @@ func getTypeName(t reflect.Type) string {
 	return getName(t.Name())
 }
 
-func getKindName(typName string) string {
-	return getName(typName)
+func getKindName(kind string) string {
+	return getName(kind)
 }
 
 func getName(name string) string {
