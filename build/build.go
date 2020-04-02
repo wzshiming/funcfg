@@ -51,8 +51,9 @@ func (b *Build) Add(kind string, t reflect.Type, fun reflect.Value) {
 	typeName := getTypeName(t)
 	name := getKindName(kind)
 	if _, ok := b.typeOnce[typeName]; !ok {
-		err := tempType.Execute(b.buf, map[string]string{
+		err := tempType.Execute(b.buf, map[string]interface{}{
 			"Type": typeName,
+			"Out":  t,
 		})
 		if err != nil {
 			log.Printf("[ERROR] type %s", err)
@@ -82,7 +83,6 @@ func (b *Build) Add(kind string, t reflect.Type, fun reflect.Value) {
 		"Name": name,
 		"Type": typeName,
 		"Kind": kind,
-		"Out":  t,
 		"Ref":  refType,
 	})
 	if err != nil {

@@ -7,13 +7,15 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/wzshiming/funcfg/define"
 	"github.com/wzshiming/gotype"
 )
 
-func GenType(prefix string, typ reflect.Type, getTypeName func(reflect.Type) string) string {
+func GenType(prefix string, typ reflect.Type, self string, getTypeName func(reflect.Type) string) string {
 	buf := bytes.NewBuffer(nil)
 	g := genType{
 		prefix:      prefix,
+		self:        self,
 		out:         buf,
 		getTypeName: getTypeName,
 		todos:       []reflect.Type{},
@@ -24,6 +26,7 @@ func GenType(prefix string, typ reflect.Type, getTypeName func(reflect.Type) str
 }
 
 type genType struct {
+	self        string
 	prefix      string
 	out         io.Writer
 	getTypeName func(reflect.Type) string
@@ -140,6 +143,7 @@ func (g *genType) toStruct(typ reflect.Type) {
 	}
 
 	fmt.Fprint(g.out, `}
+
 `)
 }
 
@@ -160,9 +164,23 @@ func (g *genType) toOther(typ reflect.Type) {
 
 func (g *genType) toInterface(typ reflect.Type) {
 	if typ.NumMethod() == 0 {
-		fmt.Fprint(g.out, "Component")
-		return
+		switch typ {
+		case self:
+			fmt.Fprint(g.out, g.self)
+			return
+		case any:
+			fmt.Fprint(g.out, "Component")
+			return
+		}
+
 	}
 	typName := g.getTypeName(typ)
 	fmt.Fprint(g.out, typName)
 }
+
+var (
+	selfP = define.Self(nil)
+	self  = reflect.TypeOf(&selfP).Elem()
+	anyP  = define.Any(nil)
+	any   = reflect.TypeOf(&anyP).Elem()
+)

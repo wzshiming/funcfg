@@ -12,7 +12,7 @@ var (
 	ErrTooManyReturnParameters = fmt.Errorf("too many return parameters")
 	ErrSecondReturnParameters  = fmt.Errorf("the second return parameter must be error")
 )
-var stdTypes = newTypes()
+var stdTypes = NewTypes()
 
 func Register(kind string, fun interface{}) error {
 	return stdTypes.Register(kind, fun)
@@ -26,17 +26,17 @@ func ForEach(f func(kind string, fun reflect.Value)) {
 	stdTypes.ForEach(f)
 }
 
-type types struct {
+type Types struct {
 	funcs map[string]reflect.Value
 }
 
-func newTypes() *types {
-	return &types{
+func NewTypes() *Types {
+	return &Types{
 		funcs: map[string]reflect.Value{},
 	}
 }
 
-func (h *types) ForEach(f func(kind string, fun reflect.Value)) {
+func (h *Types) ForEach(f func(kind string, fun reflect.Value)) {
 	keys := make([]string, 0, len(h.funcs))
 	for key := range h.funcs {
 		keys = append(keys, key)
@@ -47,12 +47,12 @@ func (h *types) ForEach(f func(kind string, fun reflect.Value)) {
 	}
 }
 
-func (h *types) Register(kind string, v interface{}) error {
+func (h *Types) Register(kind string, v interface{}) error {
 	fun := reflect.ValueOf(v)
 	return h.register(kind, fun)
 }
 
-func (h *types) register(kind string, fun reflect.Value) error {
+func (h *Types) register(kind string, fun reflect.Value) error {
 
 	_, err := CheckFunc(fun)
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *types) register(kind string, fun reflect.Value) error {
 	return nil
 }
 
-func (h *types) Get(kind string) (reflect.Value, bool) {
+func (h *Types) Get(kind string) (reflect.Value, bool) {
 	pairs, ok := h.funcs[kind]
 	return pairs, ok
 }
