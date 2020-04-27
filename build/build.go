@@ -2,39 +2,38 @@ package build
 
 import (
 	"bytes"
-	"fmt"
 	"go/format"
 	"log"
 	"reflect"
 )
 
 type Build struct {
-	pkg      string
-	buf      *bytes.Buffer
-	typeOnce map[string]struct{}
+	pkg        string
+	typeOnce   map[string]struct{}
+	interfaces []interface{}
+	types      []interface{}
 }
 
 func NewBuild(pkg string) *Build {
 	b := &Build{
 		pkg:      pkg,
-		buf:      &bytes.Buffer{},
 		typeOnce: map[string]struct{}{},
 	}
-	b.init()
 	return b
 }
 
-func (b *Build) init() {
-	fmt.Fprintf(b.buf, tempHeader, b.pkg)
-
-	fmt.Fprint(b.buf, tempConfig)
-
-}
-
 func (b *Build) Bytes() []byte {
-
-	src := b.buf.Bytes()
-
+	buf := &bytes.Buffer{}
+	err := tpl.Execute(buf, map[string]interface{}{
+		"Interfaces": b.interfaces,
+		"Types":      b.types,
+		"Package":    b.pkg,
+		"Key":        "@Kind",
+	})
+	if err != nil {
+		log.Printf("[ERROR] kind %s", err)
+	}
+	src := buf.Bytes()
 	f, err := format.Source(src)
 	if err != nil {
 		return src
@@ -51,13 +50,10 @@ func (b *Build) Add(kind string, t reflect.Type, fun reflect.Value) {
 	typeName := getTypeName(t)
 	name := getKindName(kind)
 	if _, ok := b.typeOnce[typeName]; !ok {
-		err := tempType.Execute(b.buf, map[string]interface{}{
+		b.interfaces = append(b.interfaces, map[string]interface{}{
 			"Type": typeName,
 			"Out":  t,
 		})
-		if err != nil {
-			log.Printf("[ERROR] type %s", err)
-		}
 		b.typeOnce[typeName] = struct{}{}
 	}
 
@@ -79,13 +75,10 @@ func (b *Build) Add(kind string, t reflect.Type, fun reflect.Value) {
 		}
 	}
 
-	err := tempKind.Execute(b.buf, map[string]interface{}{
+	b.types = append(b.types, map[string]interface{}{
 		"Name": name,
 		"Type": typeName,
 		"Kind": kind,
 		"Ref":  refType,
 	})
-	if err != nil {
-		log.Printf("[ERROR] kind %s", err)
-	}
 }
