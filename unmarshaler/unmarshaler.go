@@ -276,6 +276,9 @@ func indirectTo(v reflect.Value, to reflect.Type) (r reflect.Value, err error) {
 	if v.Kind() == reflect.Interface {
 		v = v.Elem()
 	}
+	if !v.IsValid() {
+		return reflect.Value{}, fmt.Errorf("can't use %v", v)
+	}
 	if v.Type().AssignableTo(to) {
 		return v, nil
 	}
