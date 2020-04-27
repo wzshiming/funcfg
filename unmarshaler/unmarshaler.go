@@ -26,7 +26,11 @@ type Unmarshaler struct {
 
 func (d *Unmarshaler) Unmarshal(config []byte, i interface{}) error {
 	v := reflect.ValueOf(i)
-	return d.decode(config, v)
+	err := d.decode(config, v)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Unmarshaler) decodeSlice(config []byte, v reflect.Value) error {
@@ -75,7 +79,7 @@ func (d *Unmarshaler) decodeStruct(config []byte, v reflect.Value) error {
 	for k, v := range tmp {
 		key := strings.ToLower(k)
 		if key != k {
-			tmp[strings.ToLower(k)] = v
+			tmp[key] = v
 		}
 	}
 
@@ -168,7 +172,7 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 	}
 
 	inj := inject.NewInjector(d.Inject)
-	args := []interface{}{d, &d.Ctx, kind, config}
+	args := []interface{}{d, &d.Ctx, inj, kind, config, &value}
 	for _, arg := range args {
 		err := inj.Map(reflect.ValueOf(arg))
 		if err != nil {
