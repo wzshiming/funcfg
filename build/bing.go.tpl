@@ -13,11 +13,10 @@ import (
     "github.com/wzshiming/funcfg/unmarshaler"
 )
 
-
 // ========= Begin Common =========
 //
 
-var kindKey = "{{.Key}}"
+var kindKey = `{{.Key}}`
 
 var defTypes = types.NewTypes()
 
@@ -63,12 +62,12 @@ func (m *RawComponent) UnmarshalJSON(data []byte) error {
     return nil
 }
 
-func appendKV(k, v string, data []byte) []byte {
+func prepend(k, v string, data []byte) []byte {
     if data[0] == '{' {
         if len(data) == 2 {
-            data = []byte(fmt.Sprintf("{\"%s\":%q}", k, v))
+            data = []byte(fmt.Sprintf(`{%q:%q}`, k, v))
         } else {
-            data = append([]byte(fmt.Sprintf("{\"%s\":%q,", k, v)), data[1:]...)
+            data = append([]byte(fmt.Sprintf(`{%q:%q,`, k, v)), data[1:]...)
         }
     }
     return data
@@ -78,10 +77,10 @@ func appendKV(k, v string, data []byte) []byte {
 // ========= End Common =========
 
 {{range .Types}}
-// ========= Begin {{.Kind}} =========
+// ========= Begin {{.Kind}} type =========
 //
 
-const kind{{.Name}}{{.Ref.Name}} = "{{.Kind}}"
+const kind{{.Name}}{{.Ref.Name}} = `{{.Kind}}`
 
 // {{.Name}}{{.Ref.Name}} {{.Kind}}
 {{genType .Name .Type .Ref}}
@@ -89,9 +88,7 @@ const kind{{.Name}}{{.Ref.Name}} = "{{.Kind}}"
 func init() {
 	_ = defTypes.Register(
 		kind{{.Name}}{{.Ref.Name}},
-		func(r *{{.Name}}{{.Ref.Name}}) {{.Type}} {
-			return r
-		},
+		func(r *{{.Name}}{{.Ref.Name}}) {{.Type}} { return r },
 	)
 }
 
@@ -105,16 +102,16 @@ func (m {{.Name}}{{.Ref.Name}}) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = appendKV(kindKey, kind{{.Name}}{{.Ref.Name}}, data)
+	data = prepend(kindKey, kind{{.Name}}{{.Ref.Name}}, data)
 	return data, nil
 }
 
 //
-// ========= End {{.Kind}} =========
+// ========= End {{.Kind}} type =========
 {{end}}
 
 {{range .Interfaces}}
-// ========= Begin {{.Out}} =========
+// ========= Begin {{.Out}} interface =========
 //
 
 // {{.Type}} {{.Out}}
@@ -147,5 +144,5 @@ func (m *Raw{{.Type}}) UnmarshalJSON(data []byte) error {
 }
 
 //
-// ========= End {{.Out}} =========
+// ========= End {{.Out}} interface =========
 {{end}}
