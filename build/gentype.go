@@ -139,6 +139,11 @@ func (g *genType) toStruct(typ reflect.Type) {
 		fmt.Fprint(g.out, " ")
 		g.to(f.Type, true)
 
+		if f.Tag != "" {
+			fmt.Fprint(g.out, " ")
+			fmt.Fprint(g.out, string(f.Tag))
+		}
+
 		fmt.Fprint(g.out, "\n")
 	}
 

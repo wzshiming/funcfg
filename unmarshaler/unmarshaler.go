@@ -208,7 +208,6 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 		if err != nil {
 			return fmt.Errorf("pipe.Unmarshaler map args error: %w", err)
 		}
-
 	}
 
 	r, err := callWithInject(fun, inj)
