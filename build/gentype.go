@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/wzshiming/funcfg/define"
@@ -140,8 +141,10 @@ func (g *genType) toStruct(typ reflect.Type) {
 		g.to(f.Type, true)
 
 		if f.Tag != "" {
-			fmt.Fprint(g.out, " ")
-			fmt.Fprint(g.out, string(f.Tag))
+			fmt.Fprint(g.out, " `")
+			tag := strconv.Quote(string(f.Tag))
+			fmt.Fprint(g.out, tag[1:len(tag)-1])
+			fmt.Fprint(g.out, "`")
 		}
 
 		fmt.Fprint(g.out, "\n")
