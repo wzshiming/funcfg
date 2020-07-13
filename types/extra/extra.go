@@ -15,7 +15,7 @@ func RegisterWithBuildFunc(kind string, function, result interface{}) error {
 	if err != nil {
 		return err
 	}
-	return types.Register(kind, fun.Interface())
+	return types.Default.Register(kind, fun.Interface())
 }
 
 func BuildFunc(function, result interface{}) (reflect.Value, error) {

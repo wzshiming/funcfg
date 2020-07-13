@@ -1,5 +1,7 @@
 package build
 
+//go:generate go run github.com/wzshiming/go-bindata/cmd/go-bindata --nomemcopy --pkg build -o bing.go ./bing.go.tpl
+
 import (
 	"reflect"
 	"strings"
@@ -7,8 +9,6 @@ import (
 
 	"github.com/wzshiming/namecase"
 )
-
-//go:generate go run github.com/wzshiming/go-bindata/cmd/go-bindata --nomemcopy --pkg build -o bing.go ./bing.go.tpl
 
 func getTypeName(t reflect.Type) string {
 	name := t.String()

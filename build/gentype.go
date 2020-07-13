@@ -116,6 +116,8 @@ func (g *genType) to(typ reflect.Type, define bool) {
 		}
 	case reflect.Slice:
 		g.toSlice(typ)
+	case reflect.Map:
+		g.toMap(typ)
 	case reflect.Ptr:
 		g.to(typ.Elem(), define)
 	case reflect.Interface:
@@ -157,6 +159,13 @@ func (g *genType) toStruct(typ reflect.Type) {
 
 func (g *genType) toSlice(typ reflect.Type) {
 	fmt.Fprint(g.out, "[]")
+	g.to(typ.Elem(), true)
+}
+
+func (g *genType) toMap(typ reflect.Type) {
+	fmt.Fprint(g.out, "map[")
+	g.to(typ.Key(), true)
+	fmt.Fprint(g.out, "]")
 	g.to(typ.Elem(), true)
 }
 

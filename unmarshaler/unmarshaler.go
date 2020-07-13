@@ -9,26 +9,45 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/wzshiming/funcfg/types"
+
 	"github.com/wzshiming/inject"
 )
 
 var (
 	ErrParsedParameter  = fmt.Errorf("the parsed parameter must be a pointer")
 	ErrMustBeAssignable = fmt.Errorf("must be assignable")
+	ErrFormat           = fmt.Errorf("format error")
+	ErrIsInvalid        = fmt.Errorf("is invalid")
 )
 
 type Unmarshaler struct {
-	Ctx    context.Context
-	Inject *inject.Injector
-	Get    func(kind string) (reflect.Value, bool)
-	Kind   func(config []byte) string
+	Ctx      context.Context
+	Inject   *inject.Injector
+	Provider types.Provider
 }
 
 func (d *Unmarshaler) Unmarshal(config []byte, i interface{}) error {
 	v := reflect.ValueOf(i)
-	err := d.decode(config, v)
+	return d.decode(config, v)
+}
+
+func (d *Unmarshaler) decodeArray(config []byte, v reflect.Value) error {
+	tmp := []json.RawMessage{}
+	err := json.Unmarshal(config, &tmp)
 	if err != nil {
 		return err
+	}
+	l := len(tmp)
+	v.Set(reflect.Zero(v.Type()))
+	if l > v.Len() {
+		l = v.Len()
+	}
+	for i := 0; i != l; i++ {
+		err := d.decode(tmp[i], v.Index(i).Addr())
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -39,14 +58,13 @@ func (d *Unmarshaler) decodeSlice(config []byte, v reflect.Value) error {
 	if err != nil {
 		return err
 	}
-	slice := reflect.MakeSlice(v.Type(), len(tmp), len(tmp))
+	v.Set(reflect.MakeSlice(v.Type(), len(tmp), len(tmp)))
 	for i := 0; i != len(tmp); i++ {
-		err := d.decode(tmp[i], slice.Index(i).Addr())
+		err := d.decode(tmp[i], v.Index(i).Addr())
 		if err != nil {
 			return err
 		}
 	}
-	v.Set(slice)
 	return nil
 }
 
@@ -57,16 +75,15 @@ func (d *Unmarshaler) decodeMap(config []byte, v reflect.Value) error {
 		return err
 	}
 	typ := v.Type()
-	n := reflect.MakeMap(typ)
+	v.Set(reflect.MakeMapWithSize(typ, len(tmp)))
 	for key, raw := range tmp {
 		val := reflect.New(typ.Elem())
 		err := d.decode(raw, val)
 		if err != nil {
 			return err
 		}
-		n.SetMapIndex(reflect.ValueOf(key), val.Elem())
+		v.SetMapIndex(reflect.ValueOf(key), val.Elem())
 	}
-	v.Set(n)
 	return nil
 }
 
@@ -117,11 +134,12 @@ func (d *Unmarshaler) decodeStruct(config []byte, v reflect.Value) error {
 }
 
 func (d *Unmarshaler) decodeOther(config []byte, v reflect.Value) error {
-	config = bytes.TrimSpace(config)
 	switch config[0] {
 	case '[':
 		v := indirectElem(v)
 		switch v.Kind() {
+		case reflect.Array:
+			return d.decodeArray(config, v)
 		case reflect.Slice:
 			return d.decodeSlice(config, v)
 		}
@@ -144,6 +162,9 @@ func (d *Unmarshaler) decodeOther(config []byte, v reflect.Value) error {
 }
 
 func (d *Unmarshaler) decode(config []byte, value reflect.Value) error {
+	if len(config) == 0 {
+		return ErrFormat
+	}
 	if value.Kind() != reflect.Ptr {
 		return ErrParsedParameter
 	}
@@ -152,31 +173,36 @@ func (d *Unmarshaler) decode(config []byte, value reflect.Value) error {
 		return ErrMustBeAssignable
 	}
 
-	kind := d.Kind(config)
+	config = bytes.TrimSpace(config)
+	if config[0] != '{' {
+		return d.decodeOther(config, value)
+	}
+
+	kind := d.Provider.Kind(config)
 	if kind == "" {
 		return d.decodeOther(config, value)
 	}
 
-	err := d.unmarshalKind(kind, config, value)
+	fun, ok := d.Provider.Find(kind)
+	if !ok {
+		return fmt.Errorf("not found %q in provider", kind)
+	}
+
+	err := d.unmarshalKind(fun, kind, config, value)
 	if err != nil {
-		return fmt.Errorf("config %q: error %w", config, err)
+		return err
 	}
 
 	return nil
 }
 
-func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Value) error {
-	fun, ok := d.Get(kind)
-	if !ok {
-		return fmt.Errorf("not defined name %q of %s", kind, value.Type().Elem())
-	}
-
+func (d *Unmarshaler) unmarshalKind(fun reflect.Value, kind string, config []byte, value reflect.Value) error {
 	inj := inject.NewInjector(d.Inject)
 	args := []interface{}{d, &d.Ctx, inj, kind, config, &value}
 	for _, arg := range args {
 		err := inj.Map(reflect.ValueOf(arg))
 		if err != nil {
-			return fmt.Errorf("pipe.Unmarshaler error: %w", err)
+			return err
 		}
 	}
 	funType := fun.Type()
@@ -188,13 +214,11 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 			if in.Elem().Kind() == reflect.Uint8 {
 				continue
 			}
-		case reflect.Struct, reflect.Map:
+		case reflect.Array, reflect.Struct, reflect.Map:
 		case reflect.Ptr:
 			if in.Elem().Kind() != reflect.Struct {
 				continue
 			}
-		case reflect.String:
-			continue
 		default:
 			continue
 		}
@@ -202,17 +226,23 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 		n := reflect.New(in)
 		err := d.decodeOther(config, n)
 		if err != nil {
-			return fmt.Errorf("config %q error: %w", config, err)
+			return err
 		}
 		err = inj.Map(n)
 		if err != nil {
-			return fmt.Errorf("pipe.Unmarshaler map args error: %w", err)
+			return err
 		}
 	}
 
 	r, err := callWithInject(fun, inj)
 	if err != nil {
 		return err
+	}
+
+	value = indirectElem(value)
+	r, err = indirectTo(r, value.Type())
+	if err != nil {
+		return fmt.Errorf("%q %w", config, err)
 	}
 
 	err = setValue(value, r)
@@ -223,12 +253,6 @@ func (d *Unmarshaler) unmarshalKind(kind string, config []byte, value reflect.Va
 }
 
 func setValue(value reflect.Value, r reflect.Value) error {
-	value = indirectElem(value)
-	r, err := indirectTo(r, value.Type())
-	if err != nil {
-		return err
-	}
-
 	switch value.Kind() {
 	case reflect.Interface:
 		if !r.Type().Implements(value.Type()) {
@@ -260,13 +284,13 @@ func callWithInject(fun reflect.Value, inj *inject.Injector) (reflect.Value, err
 				panic("this should not be performed until")
 			}
 			if err != nil {
-				return reflect.Value{}, fmt.Errorf("call return error: %w", err)
+				return reflect.Value{}, err
 			}
 		}
 	}
 	r := ret[0]
 	if r.Kind() == reflect.Invalid {
-		return reflect.Value{}, fmt.Errorf("callWithInject %s error return invalid", fun.String())
+		return reflect.Value{}, fmt.Errorf("%s error return invalid", fun.String())
 	}
 	return r, nil
 }
@@ -276,7 +300,7 @@ func indirectTo(v reflect.Value, to reflect.Type) (r reflect.Value, err error) {
 		v = v.Elem()
 	}
 	if !v.IsValid() {
-		return reflect.Value{}, fmt.Errorf("can't use %v", v)
+		return v, ErrIsInvalid
 	}
 	if v.Type().AssignableTo(to) {
 		return v, nil

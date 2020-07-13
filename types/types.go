@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -12,60 +13,66 @@ var (
 	ErrTooManyReturnParameters = fmt.Errorf("too many return parameters")
 	ErrSecondReturnParameters  = fmt.Errorf("the second return parameter must be error")
 )
-var stdTypes = NewTypes()
 
-func Register(kind string, fun interface{}) error {
-	return stdTypes.Register(kind, fun)
+var Default = NewEmptyProvider()
+
+type Provider interface {
+	Register(kind string, fun interface{}) error
+	Find(kind string) (reflect.Value, bool)
+	Kind(config []byte) string
+	ForEach(f func(kind string, fun reflect.Value))
 }
 
-func Get(kind string) (reflect.Value, bool) {
-	return stdTypes.Get(kind)
+type provider struct {
+	functions map[string]reflect.Value
 }
 
-func ForEach(f func(kind string, fun reflect.Value)) {
-	stdTypes.ForEach(f)
-}
-
-type Types struct {
-	funcs map[string]reflect.Value
-}
-
-func NewTypes() *Types {
-	return &Types{
-		funcs: map[string]reflect.Value{},
+func NewEmptyProvider() Provider {
+	return &provider{
+		functions: map[string]reflect.Value{},
 	}
 }
 
-func (h *Types) ForEach(f func(kind string, fun reflect.Value)) {
-	keys := make([]string, 0, len(h.funcs))
-	for key := range h.funcs {
+func (h *provider) ForEach(f func(kind string, fun reflect.Value)) {
+	keys := make([]string, 0, len(h.functions))
+	for key := range h.functions {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		f(key, h.funcs[key])
+		f(key, h.functions[key])
 	}
 }
 
-func (h *Types) Register(kind string, v interface{}) error {
+func (h *provider) Register(kind string, v interface{}) error {
+	if v == nil {
+		return nil
+	}
 	fun := reflect.ValueOf(v)
 	return h.register(kind, fun)
 }
 
-func (h *Types) register(kind string, fun reflect.Value) error {
-
+func (h *provider) register(kind string, fun reflect.Value) error {
 	_, err := CheckFunc(fun)
 	if err != nil {
 		return fmt.Errorf("register %s: %v: %w", kind, fun, err)
 	}
 
-	h.funcs[kind] = fun
+	h.functions[kind] = fun
 	return nil
 }
 
-func (h *Types) Get(kind string) (reflect.Value, bool) {
-	pairs, ok := h.funcs[kind]
+func (h *provider) Find(kind string) (reflect.Value, bool) {
+	pairs, ok := h.functions[kind]
 	return pairs, ok
+}
+
+func (h *provider) Kind(config []byte) string {
+	var k struct {
+		Kind string `json:"@kind"`
+	}
+	json.Unmarshal(config, &k)
+	return k.Kind
 }
 
 func CheckFunc(funcValue reflect.Value) (reflect.Type, error) {

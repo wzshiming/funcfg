@@ -8,7 +8,6 @@ import (
     "errors"
     "fmt"
 
-    "github.com/wzshiming/funcfg/kinder"
     "github.com/wzshiming/funcfg/types"
     "github.com/wzshiming/funcfg/unmarshaler"
 )
@@ -18,14 +17,13 @@ import (
 
 var kindKey = `{{.Key}}`
 
-var defTypes = types.NewTypes()
+var provider = types.NewEmptyProvider()
 
 // Unmarshal parses the encoded data and stores the result
 func Unmarshal(config []byte, v interface{}) error {
     u := unmarshaler.Unmarshaler{
-        Ctx:  context.Background(),
-        Get:  defTypes.Get,
-        Kind: kinder.Kind,
+        Ctx:      context.Background(),
+        Provider: provider,
     }
     return u.Unmarshal(config, v)
 }
@@ -86,7 +84,7 @@ const kind{{.Name}}{{.Ref.Name}} = `{{.Kind}}`
 {{genType .Name .Type .Ref}}
 
 func init() {
-	_ = defTypes.Register(
+	_ = provider.Register(
 		kind{{.Name}}{{.Ref.Name}},
 		func(r *{{.Name}}{{.Ref.Name}}) {{.Type}} { return r },
 	)

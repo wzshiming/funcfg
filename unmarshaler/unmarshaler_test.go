@@ -5,13 +5,16 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/wzshiming/funcfg/kinder"
 	"github.com/wzshiming/funcfg/types"
 	"github.com/wzshiming/inject"
 )
 
 type Config struct {
 	Name string
+}
+
+type Config2 struct {
+	Kind string `json:"name"`
 }
 
 func (c Config) M() {}
@@ -42,6 +45,10 @@ func TestUnmarshaler(t *testing.T) {
 			want: []*Config{{"hello1"}, {"hello2"}},
 		},
 		{
+			args: args{ctx, []byte(`[{"@Kind":"hello1"},{"@Kind":"hello2"}]`)},
+			want: [2]*Config{{"hello1"}, {"hello2"}},
+		},
+		{
 			args: args{ctx, []byte(`{"A":{"@Kind":"hello1"}}`)},
 			want: &struct{ A *Config }{&Config{"hello1"}},
 		},
@@ -56,7 +63,6 @@ func TestUnmarshaler(t *testing.T) {
 			args: args{ctx, []byte(`{"name":{"@Kind":"hello1"},"name2":{"@Kind":"hello2"}}`)},
 			want: &map[string]*Config{"name": {"hello1"}, "name2": {"hello2"}},
 		},
-
 		{
 			args: args{ctx, []byte(`{"@Kind":"hello1"}`)},
 			want: Config{"hello1"},
@@ -64,6 +70,10 @@ func TestUnmarshaler(t *testing.T) {
 		{
 			args: args{ctx, []byte(`[{"@Kind":"hello1"},{"@Kind":"hello2"}]`)},
 			want: []Config{{"hello1"}, {"hello2"}},
+		},
+		{
+			args: args{ctx, []byte(`[{"@Kind":"hello1"},{"@Kind":"hello2"}]`)},
+			want: [2]Config{{"hello1"}, {"hello2"}},
 		},
 		{
 			args: args{ctx, []byte(`{"A":{"@Kind":"hello1"}}`)},
@@ -98,17 +108,17 @@ func TestUnmarshaler(t *testing.T) {
 	}
 
 	for _, f := range fun {
-		err := types.Register("hello1", f)
+		err := types.Default.Register("hello1", f)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = types.Register("hello2", f)
+		err = types.Default.Register("hello2", f)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = types.Register("hello3", f)
+		err = types.Default.Register("hello3", f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,9 +127,8 @@ func TestUnmarshaler(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				gotValue := reflect.New(reflect.TypeOf(tt.want))
 				u := Unmarshaler{
-					Ctx:  tt.args.ctx,
-					Get:  types.Get,
-					Kind: kinder.Kind,
+					Ctx:      tt.args.ctx,
+					Provider: types.Default,
 				}
 				err := u.Unmarshal(tt.args.config, gotValue.Interface())
 				if (err != nil) != tt.wantErr {
