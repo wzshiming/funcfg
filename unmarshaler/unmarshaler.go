@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/wzshiming/funcfg/types"
-
 	"github.com/wzshiming/inject"
 )
 

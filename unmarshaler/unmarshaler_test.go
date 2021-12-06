@@ -13,10 +13,6 @@ type Config struct {
 	Name string
 }
 
-type Config2 struct {
-	Kind string `json:"name"`
-}
-
 func (c Config) M() {}
 
 type Adapter interface {

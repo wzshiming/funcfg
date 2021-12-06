@@ -1,8 +1,7 @@
 package build
 
-//go:generate go run github.com/wzshiming/go-bindata/cmd/go-bindata --nomemcopy --pkg build -o bing.go ./bing.go.tpl
-
 import (
+	_ "embed"
 	"reflect"
 	"strings"
 	"text/template"
@@ -35,4 +34,8 @@ func tempKindGenType(prefix, t string, typ reflect.Type) string {
 	return GenType(prefix, typ, t, getTypeName)
 }
 
-var tpl = template.Must(template.New("_").Funcs(template.FuncMap{"genType": tempKindGenType}).Parse(string(MustAsset("bing.go.tpl"))))
+var (
+	//go:embed bing.go.tpl
+	bingGoTpl string
+	tpl       = template.Must(template.New("_").Funcs(template.FuncMap{"genType": tempKindGenType}).Parse(bingGoTpl))
+)
